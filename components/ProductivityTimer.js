@@ -42,11 +42,20 @@ export default function ProductivityTimer() {
         }
       }
     }
+
     const timer = setInterval(() => {
       if (timeLeft > 0 && running) setTimeLeft(timeLeft - 1);
     }, 1000);
     return () => clearInterval(timer);
   }, [timeLeft, running, isWorking, currentCycle, cycles, workTime, restTime]);
+
+  useEffect(() => {
+    if (mode.name === 'Personalizado') {
+      setTimeLeft(isWorking ? workTime * 60 : restTime * 60);
+      setCurrentCycle(1);
+      setRunning(false);
+    }
+  }, [workTime, restTime, cycles]);
 
   return (
     <View style={styles.card}>
