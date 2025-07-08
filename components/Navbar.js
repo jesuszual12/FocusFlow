@@ -5,7 +5,6 @@ import { useRouter, useSegments } from 'expo-router';
 const tabs = [
   { name: 'Inicio', route: '/' },
   { name: 'Bloqueo', route: '/blocker' },
-  { name: 'IoT', route: '/iot' },
   { name: 'Historial', route: '/history' },
 ];
 
