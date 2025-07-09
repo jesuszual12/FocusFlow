@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import ProductivityTimer from '../../components/ProductivityTimer';
+import { StyleSheet, Text, View } from 'react-native';
 import NavbarBootstrap from '../../components/Navbar';
+import ProductivityTimer from '../../components/ProductivityTimer';
+import AppStateWatcher from '../AppStateWatcher'; // Importa el watcher
 
 export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
+      <AppStateWatcher /> {/* Agrega el watcher aquí */}
       <NavbarBootstrap />
       <View style={styles.container}>
         <Text style={styles.title}>FocusFlow</Text>
