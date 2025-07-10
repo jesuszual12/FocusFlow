@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -26,6 +27,24 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
     setRunning(false);
   }, [mode]);
 
+  // Función para guardar la sesión en AsyncStorage
+  const saveSession = async () => {
+    const session = {
+      date: new Date().toLocaleString(),
+      work: workTime * cycles,
+      rest: restTime * cycles,
+      // Puedes agregar más campos si lo deseas
+    };
+    try {
+      const data = await AsyncStorage.getItem('history');
+      const history = data ? JSON.parse(data) : [];
+      history.unshift(session); // Agrega la nueva sesión al inicio
+      await AsyncStorage.setItem('history', JSON.stringify(history));
+    } catch (e) {
+      // Manejo de error opcional
+    }
+  };
+
   useEffect(() => {
     if (!running) return;
     if (timeLeft === 0) {
@@ -42,6 +61,7 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
           setTimeLeft(workTime * 60);
         } else {
           setRunning(false);
+          saveSession(); // <-- Guarda la sesión al terminar todos los ciclos
         }
       }
     }
