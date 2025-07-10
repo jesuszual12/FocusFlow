@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const MODES = [
   { name: 'Pomodoro', work: 25, rest: 5, cycles: 4 },
@@ -30,9 +30,11 @@ export default function ProductivityTimer() {
     if (!running) return;
     if (timeLeft === 0) {
       if (isWorking) {
+        Alert.alert('¡Tiempo de descanso!', 'Has terminado tu ciclo de trabajo. Es hora de descansar.');
         setIsWorking(false);
         setTimeLeft(restTime * 60);
       } else {
+        Alert.alert('¡Descanso terminado!', 'Has terminado tu descanso. Prepárate para el siguiente ciclo.');
         if (currentCycle < cycles) {
           setIsWorking(true);
           setCurrentCycle(currentCycle + 1);

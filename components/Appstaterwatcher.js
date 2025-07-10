@@ -12,7 +12,14 @@ export default function AppStateWatcher() {
       }
     });
 
-    return () => subscription.remove();
+    return () => {
+      // Compatible con todas las versiones de React Native
+      if (typeof subscription?.remove === "function") {
+        subscription.remove();
+      } else if (typeof subscription === "function") {
+        subscription();
+      }
+    };
   }, []);
 
   return null;
