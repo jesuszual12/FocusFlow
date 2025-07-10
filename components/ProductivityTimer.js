@@ -6,7 +6,7 @@ const MODES = [
   { name: 'Personalizado', work: 30, rest: 10, cycles: 2 }
 ];
 
-export default function ProductivityTimer() {
+export default function ProductivityTimer({ onWorkCycleComplete }) {
   const [mode, setMode] = useState(MODES[0]);
   const [workTime, setWorkTime] = useState(mode.work);
   const [restTime, setRestTime] = useState(mode.rest);
@@ -33,6 +33,7 @@ export default function ProductivityTimer() {
         Alert.alert('¡Tiempo de descanso!', 'Has terminado tu ciclo de trabajo. Es hora de descansar.');
         setIsWorking(false);
         setTimeLeft(restTime * 60);
+        if (onWorkCycleComplete) onWorkCycleComplete();
       } else {
         Alert.alert('¡Descanso terminado!', 'Has terminado tu descanso. Prepárate para el siguiente ciclo.');
         if (currentCycle < cycles) {

@@ -1,10 +1,8 @@
-import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const tabs = [
   { name: 'Inicio', route: '/' },
-  { name: 'Bloqueo', route: '/blocker' },
   { name: 'Historial', route: '/history' },
 ];
 
