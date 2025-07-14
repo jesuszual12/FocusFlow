@@ -9,7 +9,13 @@ const tabs = [
 export default function NavbarBootstrap() {
   const router = useRouter();
   const segments = useSegments();
-  const current = '/' + (segments[1] || '');
+  const current = '/' + (segments[0] || ''); // corregido
+
+  const handlePress = (route) => {
+    if (route !== current) {
+      router.replace(route); // solo navega si no estamos ahí
+    }
+  };
 
   return (
     <View style={styles.navbar}>
@@ -18,9 +24,9 @@ export default function NavbarBootstrap() {
           key={tab.route}
           style={[
             styles.link,
-            (current === tab.route || (tab.route === '/' && current === '/index')) && styles.active
+            current === tab.route && styles.active
           ]}
-          onPress={() => router.push(tab.route)}
+          onPress={() => handlePress(tab.route)}
         >
           <Text style={styles.linkText}>{tab.name}</Text>
         </TouchableOpacity>
@@ -36,6 +42,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     justifyContent: 'space-around',
     alignItems: 'center',
+    marginTop: 40, // 👈 ajusta este valor según lo que necesites
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
   },
   link: {
     paddingHorizontal: 12,

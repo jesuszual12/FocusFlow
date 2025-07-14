@@ -5,9 +5,9 @@ import { TaskProvider } from './sup/Taskcontext';
 export default function RootLayout() {
   return (
     <TaskProvider>
-    <View style={{ flex: 1 }}>
-      <Stack />
-    </View>
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false }} /> {/* ← esto oculta la flecha */}
+      </View>
     </TaskProvider>
   );
 }
