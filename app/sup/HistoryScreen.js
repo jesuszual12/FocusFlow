@@ -89,85 +89,131 @@ export default function HistoryScreen() {
   const totalWork = Math.round(sessions.reduce((acc, s) => acc + (s.work || s.minutesWorked || 0), 0));
   const totalRest = Math.round(sessions.reduce((acc, s) => acc + (s.rest || s.minutesRested || 0), 0));
 
+  // Calcula el tiempo total por cada etiqueta (propósito)
+  const labelTotals = {};
+  sessions.forEach(s => {
+    const label = s.label || 'Sin etiqueta';
+    if (!labelTotals[label]) labelTotals[label] = 0;
+    labelTotals[label] += s.work || 0;
+  });
+
   return (
     <View style={{ flex: 1 }}>
       <NavbarBootstrap />
       <ScrollView style={styles.container}>
         <Text style={styles.title}>📘 Historial por Tarea</Text>
 
-        {Object.entries(grouped).map(([taskId, group]) => (
-          <View key={taskId} style={styles.group}>
-            <Text style={styles.taskName}>{group.taskName}</Text>
-            {group.sessions.map((item, idx) => {
-              const globalIndex = sessions.findIndex(s => s === item);
-              return (
-                <View key={idx} style={styles.sessionCard}>
-                  <View style={styles.badgesRow}>
-                    {item.work > 0 && (
-                      <Text style={styles.badgeWork}>
-                        {formatShortTime(item.work * 60)} {timeLabel(item.label)}
-                      </Text>
-                    )}
-                    {item.rest > 0 && (
-                      <Text style={styles.badgeRest}>
-                        {formatShortTime(item.rest * 60)} de descanso
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Nota editable */}
-                  {editingNoteIndex === globalIndex ? (
-                    <View style={styles.noteBoxEdit}>
-                      <Text style={styles.noteTitle}>Nota:</Text>
-                      <TextInput
-                        style={styles.noteInput}
-                        placeholder="Escribe aquí tu nota..."
-                        value={noteDraft}
-                        onChangeText={setNoteDraft}
-                        maxLength={100}
-                        multiline
-                      />
-                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                        <TouchableOpacity onPress={() => saveNote(globalIndex)} style={styles.saveNoteBtn}>
-                          <Text style={styles.saveNoteBtnText}>Guardar</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setEditingNoteIndex(null); setNoteDraft(''); }}>
-                          <Text style={{ color: '#888', fontWeight: 'bold' }}>Cancelar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <View>
-                      {(item.note && item.note.trim() !== "") ? (
-                        <View style={styles.noteBox}>
-                          <Text style={styles.noteTitle}>Nota:</Text>
-                          <Text style={styles.noteText}>{item.note}</Text>
-                          <TouchableOpacity
-                            onPress={() => { setEditingNoteIndex(globalIndex); setNoteDraft(item.note); }}
-                            style={styles.editBtn}
-                          >
-                            <Text style={styles.editBtnText}>Editar nota</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() => { setEditingNoteIndex(globalIndex); setNoteDraft(''); }}
-                          style={styles.addNoteBtn}
-                        >
-                          <Text style={styles.addNoteBtnText}>+ Agregar nota</Text>
-                        </TouchableOpacity>
+        {/* Apartado de etiquetas y tiempo invertido */}
+        <Text style={{ color: '#1976d2', fontWeight: 'bold', marginBottom: 8, fontSize: 16 }}>Propósito</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+          {Object.entries(labelTotals).map(([label, total]) => (
+            <View
+              key={label}
+              style={{
+                borderWidth: 1,
+                borderColor: '#198754',
+                borderRadius: 20,
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                marginBottom: 8,
+                marginRight: 8,
+                backgroundColor: '#f8fafc',
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#198754', fontWeight: 'bold', fontSize: 15 }}>
+                {label}
+              </Text>
+              <Text style={{ color: '#198754', marginLeft: 8, fontSize: 15 }}>
+                {total} min
+              </Text>
+            </View>
+          ))}
+        </View>
+        
+        {Object.entries(grouped).map(([taskId, group]) => {
+          // Suma el tiempo total de trabajo para esta etiqueta
+          const totalWorkForLabel = group.sessions.reduce((acc, item) => acc + (item.work || 0), 0);
+          return (
+            <View key={taskId} style={styles.group}>
+              <Text style={styles.taskName}>
+                {group.taskName}{" "}
+                <Text style={{ fontSize: 14, color: "#198754" }}>
+                  ({totalWorkForLabel} min trabajados)
+                </Text>
+              </Text>
+              {group.sessions.map((item, idx) => {
+                const globalIndex = sessions.findIndex(s => s === item);
+                return (
+                  <View key={idx} style={styles.sessionCard}>
+                    <View style={styles.badgesRow}>
+                      {item.work > 0 && (
+                        <Text style={styles.badgeWork}>
+                          {formatShortTime(item.work * 60)} {timeLabel(item.label)}
+                        </Text>
+                      )}
+                      {item.rest > 0 && (
+                        <Text style={styles.badgeRest}>
+                          {formatShortTime(item.rest * 60)} de descanso
+                        </Text>
                       )}
                     </View>
-                  )}
 
-                  <TouchableOpacity onPress={() => deleteSession(globalIndex)} style={styles.deleteBtn}>
-                    <Text style={styles.deleteBtnText}>✖</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        ))}
+                    {/* Nota editable */}
+                    {editingNoteIndex === globalIndex ? (
+                      <View style={styles.noteBoxEdit}>
+                        <Text style={styles.noteTitle}>Nota:</Text>
+                        <TextInput
+                          style={styles.noteInput}
+                          placeholder="Escribe aquí tu nota..."
+                          value={noteDraft}
+                          onChangeText={setNoteDraft}
+                          maxLength={100}
+                          multiline
+                        />
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                          <TouchableOpacity onPress={() => saveNote(globalIndex)} style={styles.saveNoteBtn}>
+                            <Text style={styles.saveNoteBtnText}>Guardar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => { setEditingNoteIndex(null); setNoteDraft(''); }}>
+                            <Text style={{ color: '#888', fontWeight: 'bold' }}>Cancelar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <View>
+                        {(item.note && item.note.trim() !== "") ? (
+                          <View style={styles.noteBox}>
+                            <Text style={styles.noteTitle}>Nota:</Text>
+                            <Text style={styles.noteText}>{item.note}</Text>
+                            <TouchableOpacity
+                              onPress={() => { setEditingNoteIndex(globalIndex); setNoteDraft(item.note); }}
+                              style={styles.editBtn}
+                            >
+                              <Text style={styles.editBtnText}>Editar nota</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={() => { setEditingNoteIndex(globalIndex); setNoteDraft(''); }}
+                            style={styles.addNoteBtn}
+                          >
+                            <Text style={styles.addNoteBtnText}>+ Agregar nota</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+
+                    <TouchableOpacity onPress={() => deleteSession(globalIndex)} style={styles.deleteBtn}>
+                      <Text style={styles.deleteBtnText}>✖</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
 
         <View style={styles.total}>
           <Text style={styles.badgeWork}>{totalWork} min trabajo</Text>
