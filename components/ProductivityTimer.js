@@ -20,8 +20,9 @@ const MODES = [
   { name: 'Personalizado', work: 1800, rest: 600, cycles: 2 }
 ];
 
-const SUGGESTED_LABELS = [
-  "Estudiar para el examen", "Lectura", "Trabajo", "Ejercicio", "Descanso", "Tarea", "Meditación", "Proyecto personal"
+const DEFAULT_LABELS = [
+  "Estudiar para el examen", "Lectura", "Trabajo", "Ejercicio",
+  "Descanso", "Tarea", "Meditación", "Proyecto personal"
 ];
 
 const THEMES = [
@@ -58,9 +59,7 @@ const THEMES = [
 ];
 
 export default function ProductivityTimer({ onWorkCycleComplete }) {
-  // Estados para timer
   const [theme, setTheme] = useState(THEMES[0]);
-
   const [mode, setMode] = useState(MODES[0]);
   const [workTime, setWorkTime] = useState(mode.work);
   const [restTime, setRestTime] = useState(mode.rest);
@@ -70,16 +69,29 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
   const [currentCycle, setCurrentCycle] = useState(1);
   const [running, setRunning] = useState(false);
   const [label, setLabel] = useState('');
-  const [customLabel, setCustomLabel] = useState('');
-  const [note, setNote] = useState('');
+
+  const [customLabels, setCustomLabels] = useState([]);
+  const [labelModalVisible, setLabelModalVisible] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+
   const intervalRef = useRef(null);
 
-  // Modal para nueva meta
-  const [metaModalVisible, setMetaModalVisible] = useState(false);
-  const [newMetaName, setNewMetaName] = useState('');
-  const [newMetaDesc, setNewMetaDesc] = useState('');
+  useEffect(() => {
+    const loadCustomLabels = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('customLabels');
+        if (stored) {
+          setCustomLabels(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.error('Error cargando etiquetas personalizadas:', e);
+      }
+    };
+    loadCustomLabels();
+  }, []);
 
-  // Lógica de temporizador (igual que antes)
+  const labels = [...DEFAULT_LABELS.filter(l => !customLabels.includes(l)), ...customLabels];
+
   useEffect(() => {
     if (!running) return;
     if (timeLeft === 0) {
@@ -101,13 +113,11 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
           Vibration.vibrate([0, 600, 200, 600]);
           Alert.alert("\u00a1Sesiones completadas!", "\u00a1Buen trabajo!");
 
-          // Guardar sesión en historial (solo label, note y tiempos)
           const session = {
             date: new Date().toISOString().split('T')[0],
             work: (workTime * cycles) / 60,
             rest: (restTime * cycles) / 60,
-            label: label || customLabel || "Sin propósito",
-            note: note || ""
+            label: label || "Sin propósito"
           };
           (async () => {
             try {
@@ -130,7 +140,6 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
     return () => clearInterval(intervalRef.current);
   }, [timeLeft, running, isWorking]);
 
-  // Actualiza el temporizador cuando cambian tiempos personalizados
   useEffect(() => {
     if (mode.name === 'Personalizado') {
       setTimeLeft(isWorking ? workTime : restTime);
@@ -139,28 +148,35 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
     }
   }, [workTime, restTime, cycles]);
 
-  // Limpia inputs cruzados
-  useEffect(() => { if (customLabel.length > 0) setLabel(''); }, [customLabel]);
-  useEffect(() => { if (label.length > 0) setCustomLabel(''); }, [label]);
-
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Crear meta nueva (solo modal sin guardado en lista para simplificar)
-  const handleCreateMeta = () => {
-    if (!newMetaName.trim()) return Alert.alert("Error", "El nombre de la meta no puede estar vacío.");
-    setLabel(newMetaName.trim());
-    setNewMetaName('');
-    setNewMetaDesc('');
-    setMetaModalVisible(false);
+  const handleAddLabel = async () => {
+    const trimmed = newLabel.trim();
+    if (!trimmed) {
+      Alert.alert("Error", "La etiqueta no puede estar vacía.");
+      return;
+    }
+    if (customLabels.includes(trimmed) || DEFAULT_LABELS.includes(trimmed)) {
+      Alert.alert("Error", "Esta etiqueta ya existe.");
+      return;
+    }
+    try {
+      const updatedLabels = [...customLabels, trimmed];
+      setCustomLabels(updatedLabels);
+      await AsyncStorage.setItem('customLabels', JSON.stringify(updatedLabels));
+      setNewLabel('');
+      setLabelModalVisible(false);
+    } catch (e) {
+      console.error('Error guardando etiqueta personalizada:', e);
+    }
   };
 
   return (
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]} keyboardShouldPersistTaps="handled">
-      {/* Selector de tema arriba */}
       <View style={styles.themeRow}>
         <Text style={[styles.themeLabel, { color: theme.text }]}>Tema:</Text>
         {THEMES.map(t => (
@@ -181,14 +197,12 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
         ))}
       </View>
 
-      {/* Temporizador visible */}
       <View style={styles.timerContainer}>
         <Text style={[styles.timerLabel, { color: theme.points }]}>{isWorking ? 'Trabajando' : 'Descansando'}</Text>
         <Text style={[styles.timer, { color: theme.points }]}>{formatTime(timeLeft)}</Text>
         <Text style={[styles.cycleText, { color: theme.points }]}>Ciclo {currentCycle} / {cycles}</Text>
       </View>
 
-      {/* Botones iniciar/pausar y reiniciar */}
       <View style={styles.buttonsRow}>
         <TouchableOpacity
           style={[styles.btn, running ? styles.btnPause : styles.btnStart]}
@@ -204,7 +218,6 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
         </TouchableOpacity>
       </View>
 
-      {/* Selección modo */}
       <View style={styles.modeRow}>
         {MODES.map(m => (
           <TouchableOpacity
@@ -217,7 +230,6 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
         ))}
       </View>
 
-      {/* Inputs para modo personalizado */}
       {mode.name === 'Personalizado' && (
         <View style={styles.customInputsRow}>
           <View style={styles.inputGroup}>
@@ -250,80 +262,47 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
         </View>
       )}
 
-      {/* Propósito */}
       <Text style={[styles.label, { marginTop: 20, color: theme.text }]}>Propósito</Text>
       <View style={styles.labelsContainer}>
-        {SUGGESTED_LABELS.map(tag => (
+        {labels.map(tag => (
           <TouchableOpacity
             key={tag}
             style={[
-              styles.labelTag,
-              label === tag && styles.labelTagActive,
+              styles.labelBubble,
               label === tag && { backgroundColor: theme.points, borderColor: theme.points }
             ]}
             onPress={() => setLabel(tag)}
+            activeOpacity={0.7}
           >
             <Text style={[
-              styles.labelTagText,
-              label === tag && styles.labelTagTextActive,
-              label === tag && { color: '#fff' }
+              styles.labelText,
+              label === tag && { color: '#fff', fontWeight: 'bold' }
             ]}>{tag}</Text>
           </TouchableOpacity>
         ))}
+        {/* Botón para agregar nueva etiqueta */}
+        <TouchableOpacity
+          style={[styles.labelBubble, styles.addBubble, { borderColor: theme.points }]}
+          onPress={() => setLabelModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.labelText, { color: theme.points, fontWeight: 'bold' }]}>+ Agregar</Text>
+        </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={[styles.inputMulti, { marginTop: 8, borderColor: theme.text, color: theme.text, backgroundColor: theme.modal }]}
-        placeholder="Escribe tu propósito"
-        placeholderTextColor={theme.text + '88'}
-        value={customLabel}
-        onChangeText={setCustomLabel}
-        multiline
-        textAlignVertical="top"
-      />
-
-      {/* Notas */}
-      <Text style={[styles.label, { marginTop: 20, color: theme.text }]}>Notas</Text>
-      <TextInput
-        style={[styles.inputMulti, { borderColor: theme.text, color: theme.text, backgroundColor: theme.modal }]}
-        placeholder="Notas"
-        placeholderTextColor={theme.text + '88'}
-        value={note}
-        onChangeText={setNote}
-        multiline
-        maxLength={100}
-        textAlignVertical="top"
-      />
-
-      {/* Botón + Nueva meta debajo de notas */}
-      <TouchableOpacity
-        style={[styles.createMetaBtn, { backgroundColor: theme.button }]}
-        onPress={() => setMetaModalVisible(true)}
-      >
-        <Text style={[styles.createMetaBtnText, { color: theme.buttonText }]}>+ Nueva meta</Text>
-      </TouchableOpacity>
-
-      {/* Modal para crear nueva meta */}
-      <Modal visible={metaModalVisible} transparent animationType="slide">
+      <Modal visible={labelModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.modal }]}>
-            <Text style={[styles.modalTitle, { color: theme.modalText }]}>Nueva Meta</Text>
+            <Text style={[styles.modalTitle, { color: theme.modalText }]}>Nueva Etiqueta</Text>
             <TextInput
-              placeholder="Nombre"
+              placeholder="Nombre de la etiqueta"
               placeholderTextColor={theme.modalText + 'aa'}
-              value={newMetaName}
-              onChangeText={setNewMetaName}
+              value={newLabel}
+              onChangeText={setNewLabel}
               style={[styles.modalInput, { borderBottomColor: theme.modalText, color: theme.modalText }]}
             />
-            <TextInput
-              placeholder="Descripción (opcional)"
-              placeholderTextColor={theme.modalText + 'aa'}
-              value={newMetaDesc}
-              onChangeText={setNewMetaDesc}
-              style={[styles.modalInput, { borderBottomColor: theme.modalText, color: theme.modalText }]}
-            />
-            <Button title="Guardar" onPress={handleCreateMeta} color={theme.button} />
-            <Button title="Cancelar" color="#888" onPress={() => setMetaModalVisible(false)} />
+            <Button title="Guardar" onPress={handleAddLabel} color={theme.button} />
+            <Button title="Cancelar" color="#888" onPress={() => setLabelModalVisible(false)} />
           </View>
         </View>
       </Modal>
@@ -431,49 +410,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f8fafc',
   },
-  inputMulti: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    minHeight: 40,
-    backgroundColor: '#f8fafc',
-  },
 
   labelsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
   },
-  labelTag: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  labelBubble: {
+    backgroundColor: '#e0f2f1',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     margin: 4,
     borderWidth: 1,
-    borderColor: '#198754',
+    borderColor: '#4db6ac',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
-  labelTagActive: {
-    backgroundColor: '#198754',
-  },
-  labelTagText: {
-    color: '#198754',
+  labelText: {
+    color: '#00796b',
     fontWeight: '600',
+    fontSize: 14,
   },
-  labelTagTextActive: {
-    color: '#fff',
-  },
-
-  createMetaBtn: {
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  createMetaBtnText: {
-    fontWeight: 'bold',
-    fontSize: 18,
+  addBubble: {
+    backgroundColor: '#fff',
+    borderStyle: 'dashed',
   },
 
   modalOverlay: {

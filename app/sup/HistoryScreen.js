@@ -1,4 +1,3 @@
-// HistoryScreen.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -43,12 +42,14 @@ export default function HistoryScreen() {
     await AsyncStorage.removeItem('history');
   };
 
-  const deleteSession = async (sessionIndex, taskId) => {
+  const deleteSession = async (timestampToDelete) => {
     Alert.alert('Confirmar', '¿Seguro que quieres borrar esta sesión?', [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Sí', style: 'destructive', onPress: async () => {
-          const updatedSessions = sessions.filter((_, i) => i !== sessionIndex);
+        text: 'Sí',
+        style: 'destructive',
+        onPress: async () => {
+          const updatedSessions = sessions.filter(s => s.timestamp !== timestampToDelete);
           await AsyncStorage.setItem('history', JSON.stringify(updatedSessions));
           fetchSessions();
         }
@@ -85,16 +86,14 @@ export default function HistoryScreen() {
     return `de ${label}`;
   };
 
-  // Redondear totales a enteros
   const totalWork = Math.round(sessions.reduce((acc, s) => acc + (s.work || s.minutesWorked || 0), 0));
   const totalRest = Math.round(sessions.reduce((acc, s) => acc + (s.rest || s.minutesRested || 0), 0));
 
-  // Calcula el tiempo total por cada etiqueta (propósito)
   const labelTotals = {};
   sessions.forEach(s => {
     const label = s.label || 'Sin etiqueta';
     if (!labelTotals[label]) labelTotals[label] = 0;
-    labelTotals[label] += s.work || 0;
+    labelTotals[label] += Math.round(s.work || 0);
   });
 
   return (
@@ -103,50 +102,28 @@ export default function HistoryScreen() {
       <ScrollView style={styles.container}>
         <Text style={styles.title}>📘 Historial por Tarea</Text>
 
-        {/* Apartado de etiquetas y tiempo invertido */}
-        <Text style={{ color: '#1976d2', fontWeight: 'bold', marginBottom: 8, fontSize: 16 }}>Propósito</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+        <Text style={styles.subtitle}>Propósito</Text>
+        <View style={styles.labelList}>
           {Object.entries(labelTotals).map(([label, total]) => (
-            <View
-              key={label}
-              style={{
-                borderWidth: 1,
-                borderColor: '#198754',
-                borderRadius: 20,
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                marginBottom: 8,
-                marginRight: 8,
-                backgroundColor: '#f8fafc',
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#198754', fontWeight: 'bold', fontSize: 15 }}>
-                {label}
-              </Text>
-              <Text style={{ color: '#198754', marginLeft: 8, fontSize: 15 }}>
-                {total} min
-              </Text>
+            <View key={label} style={styles.labelItem}>
+              <Text style={styles.labelText}>{label}</Text>
+              <Text style={styles.labelTime}>{Math.round(total)} min</Text>
             </View>
           ))}
         </View>
-        
+
         {Object.entries(grouped).map(([taskId, group]) => {
-          // Suma el tiempo total de trabajo para esta etiqueta
-          const totalWorkForLabel = group.sessions.reduce((acc, item) => acc + (item.work || 0), 0);
+          const totalWorkForLabel = Math.round(group.sessions.reduce((acc, item) => acc + (item.work || 0), 0));
           return (
             <View key={taskId} style={styles.group}>
               <Text style={styles.taskName}>
-                {group.taskName}{" "}
-                <Text style={{ fontSize: 14, color: "#198754" }}>
-                  ({totalWorkForLabel} min trabajados)
-                </Text>
+                {group.taskName}{' '}
+                <Text style={styles.taskTotal}>({totalWorkForLabel} min trabajados)</Text>
               </Text>
               {group.sessions.map((item, idx) => {
-                const globalIndex = sessions.findIndex(s => s === item);
+                const globalIndex = sessions.findIndex(s => s.timestamp === item.timestamp);
                 return (
-                  <View key={idx} style={styles.sessionCard}>
+                  <View key={item.timestamp || idx} style={styles.sessionCard}>
                     <View style={styles.badgesRow}>
                       {item.work > 0 && (
                         <Text style={styles.badgeWork}>
@@ -160,7 +137,6 @@ export default function HistoryScreen() {
                       )}
                     </View>
 
-                    {/* Nota editable */}
                     {editingNoteIndex === globalIndex ? (
                       <View style={styles.noteBoxEdit}>
                         <Text style={styles.noteTitle}>Nota:</Text>
@@ -172,18 +148,18 @@ export default function HistoryScreen() {
                           maxLength={100}
                           multiline
                         />
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                        <View style={styles.noteButtons}>
                           <TouchableOpacity onPress={() => saveNote(globalIndex)} style={styles.saveNoteBtn}>
                             <Text style={styles.saveNoteBtnText}>Guardar</Text>
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => { setEditingNoteIndex(null); setNoteDraft(''); }}>
-                            <Text style={{ color: '#888', fontWeight: 'bold' }}>Cancelar</Text>
+                            <Text style={styles.cancelNoteText}>Cancelar</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
                     ) : (
                       <View>
-                        {(item.note && item.note.trim() !== "") ? (
+                        {item.note?.trim() ? (
                           <View style={styles.noteBox}>
                             <Text style={styles.noteTitle}>Nota:</Text>
                             <Text style={styles.noteText}>{item.note}</Text>
@@ -205,7 +181,7 @@ export default function HistoryScreen() {
                       </View>
                     )}
 
-                    <TouchableOpacity onPress={() => deleteSession(globalIndex)} style={styles.deleteBtn}>
+                    <TouchableOpacity onPress={() => deleteSession(item.timestamp)} style={styles.deleteBtn}>
                       <Text style={styles.deleteBtnText}>✖</Text>
                     </TouchableOpacity>
                   </View>
@@ -231,8 +207,25 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#f8fafc' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#1976d2', textAlign: 'center', marginBottom: 24 },
+  subtitle: { color: '#1976d2', fontWeight: 'bold', marginBottom: 8, fontSize: 16 },
+  labelList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+  labelItem: {
+    borderWidth: 1,
+    borderColor: '#198754',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginRight: 8,
+    backgroundColor: '#f8fafc',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  labelText: { color: '#198754', fontWeight: 'bold', fontSize: 15 },
+  labelTime: { color: '#198754', marginLeft: 8, fontSize: 15 },
   group: { marginBottom: 24 },
   taskName: { fontSize: 20, fontWeight: 'bold', marginBottom: 8, color: '#4a4e69' },
+  taskTotal: { fontSize: 14, color: "#198754" },
   sessionCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -264,25 +257,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     fontWeight: 'bold',
   },
-  total: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 16,
-    gap: 12,
-  },
-  deleteAllBtn: {
-    backgroundColor: '#dc3545',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 6,
-    marginTop: 24,
-    alignSelf: 'center',
-  },
-  deleteAllBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
   noteBox: {
     backgroundColor: '#f5f8fa',
     borderRadius: 8,
@@ -307,6 +281,16 @@ const styles = StyleSheet.create({
     minHeight: 30,
     color: '#333',
   },
+  noteButtons: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  saveNoteBtn: {
+    backgroundColor: '#198754',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+  },
+  saveNoteBtnText: { color: '#fff', fontWeight: 'bold' },
+  cancelNoteText: { color: '#888', fontWeight: 'bold' },
   addNoteBtn: {
     backgroundColor: '#e7eaf6',
     borderRadius: 8,
@@ -315,10 +299,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     alignSelf: 'flex-start',
   },
-  addNoteBtnText: {
-    color: '#1976d2',
-    fontWeight: 'bold',
-  },
+  addNoteBtnText: { color: '#1976d2', fontWeight: 'bold' },
   editBtn: {
     backgroundColor: '#e7eaf6',
     borderRadius: 8,
@@ -327,22 +308,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignSelf: 'flex-start',
   },
-  editBtnText: {
-    color: '#1976d2',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  saveNoteBtn: {
-    backgroundColor: '#198754',
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    alignSelf: 'flex-start',
-  },
-  saveNoteBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+  editBtnText: { color: '#1976d2', fontWeight: 'bold', fontSize: 13 },
   deleteBtn: {
     backgroundColor: '#e9ecef',
     paddingVertical: 6,
@@ -357,5 +323,24 @@ const styles = StyleSheet.create({
     color: '#d32f2f',
     fontWeight: 'bold',
     fontSize: 18,
+  },
+  total: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 12,
+  },
+  deleteAllBtn: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 6,
+    marginTop: 24,
+    alignSelf: 'center',
+  },
+  deleteAllBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
