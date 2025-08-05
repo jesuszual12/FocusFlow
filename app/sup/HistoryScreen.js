@@ -2,8 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import NavbarBootstrap from '../../components/Navbar';
+import { useTheme } from '../../components/ThemeContext'; // 1. Importa el hook
 
 export default function HistoryScreen() {
+  const { theme } = useTheme(); // 2. Usa el tema
   const [sessions, setSessions] = useState([]);
   const [grouped, setGrouped] = useState({});
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
@@ -97,17 +99,17 @@ export default function HistoryScreen() {
   });
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       <NavbarBootstrap />
-      <ScrollView style={styles.container}>
-        <Text style={styles.title}>📘 Historial por Tarea</Text>
+      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={[styles.title, { color: theme.text }]}>📘 Historial por Tarea</Text>
 
-        <Text style={styles.subtitle}>Propósito</Text>
+        <Text style={[styles.subtitle, { color: theme.text }]}>Propósito</Text>
         <View style={styles.labelList}>
           {Object.entries(labelTotals).map(([label, total]) => (
-            <View key={label} style={styles.labelItem}>
-              <Text style={styles.labelText}>{label}</Text>
-              <Text style={styles.labelTime}>{Math.round(total)} min</Text>
+            <View key={label} style={[styles.labelItem, { borderColor: theme.points, backgroundColor: theme.background }]}>
+              <Text style={[styles.labelText, { color: theme.points }]}>{label}</Text>
+              <Text style={[styles.labelTime, { color: theme.points }]}>{Math.round(total)} min</Text>
             </View>
           ))}
         </View>
@@ -116,17 +118,17 @@ export default function HistoryScreen() {
           const totalWorkForLabel = Math.round(group.sessions.reduce((acc, item) => acc + (item.work || 0), 0));
           return (
             <View key={taskId} style={styles.group}>
-              <Text style={styles.taskName}>
+              <Text style={[styles.taskName, { color: theme.text }]}>
                 {group.taskName}{' '}
-                <Text style={styles.taskTotal}>({totalWorkForLabel} min trabajados)</Text>
+                <Text style={[styles.taskTotal, { color: theme.points }]}>({totalWorkForLabel} min trabajados)</Text>
               </Text>
               {group.sessions.map((item, idx) => {
                 const globalIndex = sessions.findIndex(s => s.timestamp === item.timestamp);
                 return (
-                  <View key={item.timestamp || idx} style={styles.sessionCard}>
+                  <View key={item.timestamp || idx} style={[styles.sessionCard, { backgroundColor: theme.modal }]}>
                     <View style={styles.badgesRow}>
                       {item.work > 0 && (
-                        <Text style={styles.badgeWork}>
+                        <Text style={[styles.badgeWork, { backgroundColor: theme.points, color: theme.buttonText }]}>
                           {formatShortTime(item.work * 60)} {timeLabel(item.label)}
                         </Text>
                       )}
@@ -138,51 +140,50 @@ export default function HistoryScreen() {
                     </View>
 
                     {editingNoteIndex === globalIndex ? (
-                      <View style={styles.noteBoxEdit}>
-                        <Text style={styles.noteTitle}>Nota:</Text>
+                      <View style={[styles.noteBoxEdit, { backgroundColor: theme.background }]}>
+                        <Text style={[styles.noteTitle, { color: theme.text }]}>Nota:</Text>
                         <TextInput
-                          style={styles.noteInput}
+                          style={[styles.noteInput, { color: theme.text, backgroundColor: theme.modal }]}
                           placeholder="Escribe aquí tu nota..."
+                          placeholderTextColor={theme.text + '99'}
                           value={noteDraft}
                           onChangeText={setNoteDraft}
                           maxLength={100}
                           multiline
                         />
                         <View style={styles.noteButtons}>
-                          <TouchableOpacity onPress={() => saveNote(globalIndex)} style={styles.saveNoteBtn}>
-                            <Text style={styles.saveNoteBtnText}>Guardar</Text>
+                          <TouchableOpacity onPress={() => saveNote(globalIndex)} style={[styles.saveNoteBtn, { backgroundColor: theme.points }]}>
+                            <Text style={[styles.saveNoteBtnText, { color: theme.buttonText }]}>Guardar</Text>
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => { setEditingNoteIndex(null); setNoteDraft(''); }}>
-                            <Text style={styles.cancelNoteText}>Cancelar</Text>
+                            <Text style={[styles.cancelNoteText, { color: theme.text }]}>Cancelar</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
                     ) : (
                       <View>
                         {item.note?.trim() ? (
-                          <View style={styles.noteBox}>
-                            <Text style={styles.noteTitle}>Nota:</Text>
-                            <Text style={styles.noteText}>{item.note}</Text>
+                          <View style={[styles.noteBox, { backgroundColor: theme.background }]}>
+                            <Text style={[styles.noteTitle, { color: theme.text }]}>Nota:</Text>
+                            <Text style={[styles.noteText, { color: theme.text }]}>{item.note}</Text>
                             <TouchableOpacity
                               onPress={() => { setEditingNoteIndex(globalIndex); setNoteDraft(item.note); }}
-                              style={styles.editBtn}
-                            >
-                              <Text style={styles.editBtnText}>Editar nota</Text>
+                              style={[styles.editBtn, { backgroundColor: theme.button }]}>
+                              <Text style={[styles.editBtnText, { color: theme.buttonText }]}>Editar nota</Text>
                             </TouchableOpacity>
                           </View>
                         ) : (
                           <TouchableOpacity
                             onPress={() => { setEditingNoteIndex(globalIndex); setNoteDraft(''); }}
-                            style={styles.addNoteBtn}
-                          >
-                            <Text style={styles.addNoteBtnText}>+ Agregar nota</Text>
+                            style={[styles.addNoteBtn, { backgroundColor: theme.button }]}>
+                            <Text style={[styles.addNoteBtnText, { color: theme.buttonText }]}>+ Agregar nota</Text>
                           </TouchableOpacity>
                         )}
                       </View>
                     )}
 
-                    <TouchableOpacity onPress={() => deleteSession(item.timestamp)} style={styles.deleteBtn}>
-                      <Text style={styles.deleteBtnText}>✖</Text>
+                    <TouchableOpacity onPress={() => deleteSession(item.timestamp)} style={[styles.deleteBtn, { backgroundColor: theme.modal }]}>
+                      <Text style={[styles.deleteBtnText, { color: '#d32f2f' }]}>✖</Text>
                     </TouchableOpacity>
                   </View>
                 );
@@ -192,11 +193,11 @@ export default function HistoryScreen() {
         })}
 
         <View style={styles.total}>
-          <Text style={styles.badgeWork}>{totalWork} min trabajo</Text>
+          <Text style={[styles.badgeWork, { backgroundColor: theme.points, color: theme.buttonText }]}>{totalWork} min trabajo</Text>
           <Text style={styles.badgeRest}>{totalRest} min descanso</Text>
         </View>
 
-        <TouchableOpacity onPress={deleteAllSessions} style={styles.deleteAllBtn}>
+        <TouchableOpacity onPress={deleteAllSessions} style={[styles.deleteAllBtn, { backgroundColor: '#dc3545' }]}>
           <Text style={styles.deleteAllBtnText}>Eliminar todo el historial</Text>
         </TouchableOpacity>
       </ScrollView>

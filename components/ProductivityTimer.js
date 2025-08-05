@@ -14,6 +14,7 @@ import {
   Vibration,
   View,
 } from 'react-native';
+import { useTheme } from './ThemeContext';
 
 const MODES = [
   { name: 'Pomodoro', work: 1500, rest: 300, cycles: 4 },
@@ -25,41 +26,8 @@ const DEFAULT_LABELS = [
   "Descanso", "Tarea", "Meditación", "Proyecto personal"
 ];
 
-const THEMES = [
-  {
-    name: 'Claro',
-    background: '#f8fafc',
-    text: '#1976d2',
-    points: '#388e3c',
-    button: '#1976d2',
-    buttonText: '#fff',
-    modal: '#fff',
-    modalText: '#1976d2'
-  },
-  {
-    name: 'Oscuro',
-    background: '#22223b',
-    text: '#f2e9e4',
-    points: '#c9ada7',
-    button: '#4a4e69',
-    buttonText: '#fff',
-    modal: '#4a4e69',
-    modalText: '#f2e9e4'
-  },
-  {
-    name: 'Pastel',
-    background: '#ffe4ec',
-    text: '#c9184a',
-    points: '#ffb4a2',
-    button: '#ffb4a2',
-    buttonText: '#fff',
-    modal: '#fff',
-    modalText: '#c9184a'
-  }
-];
-
 export default function ProductivityTimer({ onWorkCycleComplete }) {
-  const [theme, setTheme] = useState(THEMES[0]);
+  const { theme, setTheme, themes } = useTheme();
   const [mode, setMode] = useState(MODES[0]);
   const [workTime, setWorkTime] = useState(mode.work);
   const [restTime, setRestTime] = useState(mode.rest);
@@ -71,6 +39,7 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
   const [label, setLabel] = useState('');
 
   const [customLabels, setCustomLabels] = useState([]);
+  const [hiddenDefaultLabels, setHiddenDefaultLabels] = useState([]); // NUEVO
   const [labelModalVisible, setLabelModalVisible] = useState(false);
   const [newLabel, setNewLabel] = useState('');
 
@@ -80,17 +49,38 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
     const loadCustomLabels = async () => {
       try {
         const stored = await AsyncStorage.getItem('customLabels');
-        if (stored) {
-          setCustomLabels(JSON.parse(stored));
-        }
+        if (stored) setCustomLabels(JSON.parse(stored));
+        // Cargar etiquetas default ocultas
+        const hidden = await AsyncStorage.getItem('hiddenDefaultLabels');
+        if (hidden) setHiddenDefaultLabels(JSON.parse(hidden));
       } catch (e) {
-        console.error('Error cargando etiquetas personalizadas:', e);
+        console.error('Error cargando etiquetas:', e);
       }
     };
     loadCustomLabels();
   }, []);
 
-  const labels = [...DEFAULT_LABELS.filter(l => !customLabels.includes(l)), ...customLabels];
+  // NUEVO: función para eliminar etiqueta
+  const handleDeleteLabel = async (tag) => {
+    if (customLabels.includes(tag)) {
+      // Eliminar de customLabels
+      const updated = customLabels.filter(l => l !== tag);
+      setCustomLabels(updated);
+      await AsyncStorage.setItem('customLabels', JSON.stringify(updated));
+      if (label === tag) setLabel('');
+    } else if (DEFAULT_LABELS.includes(tag)) {
+      // Ocultar default label
+      const updated = [...hiddenDefaultLabels, tag];
+      setHiddenDefaultLabels(updated);
+      await AsyncStorage.setItem('hiddenDefaultLabels', JSON.stringify(updated));
+      if (label === tag) setLabel('');
+    }
+  };
+
+  const labels = [
+    ...DEFAULT_LABELS.filter(l => !customLabels.includes(l) && !hiddenDefaultLabels.includes(l)),
+    ...customLabels
+  ];
 
   useEffect(() => {
     if (!running) return;
@@ -179,7 +169,7 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]} keyboardShouldPersistTaps="handled">
       <View style={styles.themeRow}>
         <Text style={[styles.themeLabel, { color: theme.text }]}>Tema:</Text>
-        {THEMES.map(t => (
+        {themes.map(t => (
           <TouchableOpacity
             key={t.name}
             style={[
@@ -265,20 +255,26 @@ export default function ProductivityTimer({ onWorkCycleComplete }) {
       <Text style={[styles.label, { marginTop: 20, color: theme.text }]}>Propósito</Text>
       <View style={styles.labelsContainer}>
         {labels.map(tag => (
-          <TouchableOpacity
-            key={tag}
-            style={[
-              styles.labelBubble,
-              label === tag && { backgroundColor: theme.points, borderColor: theme.points }
-            ]}
-            onPress={() => setLabel(tag)}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.labelText,
-              label === tag && { color: '#fff', fontWeight: 'bold' }
-            ]}>{tag}</Text>
-          </TouchableOpacity>
+          <View key={tag} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[
+                styles.labelBubble,
+                label === tag && { backgroundColor: theme.points, borderColor: theme.points }
+              ]}
+              onPress={() => setLabel(tag)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.labelText,
+                label === tag && { color: '#fff', fontWeight: 'bold' }
+              ]}>{tag}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleDeleteLabel(tag)}>
+              <View style={styles.deleteBtn}>
+                <Text style={styles.deleteBtnText}>✕</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         ))}
         {/* Botón para agregar nueva etiqueta */}
         <TouchableOpacity
@@ -441,6 +437,28 @@ const styles = StyleSheet.create({
   addBubble: {
     backgroundColor: '#fff',
     borderStyle: 'dashed',
+  },
+  deleteBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#ffebee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+    borderWidth: 1,
+    borderColor: '#e57373',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  deleteBtnText: {
+    color: '#e53935',
+    fontWeight: 'bold',
+    fontSize: 14,
+    lineHeight: 16,
   },
 
   modalOverlay: {
